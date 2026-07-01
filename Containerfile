@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.14-slim AS build
 
 ARG LG_REPO=https://github.com/joan2937/lg.git
 ARG PIGPIO_REPO=https://github.com/joan2937/pigpio.git
@@ -31,7 +31,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV VIRTUAL_ENV=/opt/venv
