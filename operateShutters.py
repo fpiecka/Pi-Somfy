@@ -302,6 +302,11 @@ class Shutter(MyLog):
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
 
+    def pigpioPi(self):
+        if self.config.PigpioHost.strip():
+            return pigpio.pi(self.config.PigpioHost, self.config.PigpioPort)
+        return pigpio.pi()
+
     def sendCommand(self, shutterId, button, repetition): #Sending a frame
     # Sending more than two repetitions after the original frame means a button kept pressed and moves the blind in steps 
     # to adjust the tilt. Sending the original frame and three repetitions is the smallest adjustment, sending the original
@@ -362,7 +367,7 @@ class Shutter(MyLog):
                self._sendWave_lgpio(repetition)
            else:
                #This is where all the awesomeness is happening. You're telling the daemon what you wanna send
-               pi = pigpio.pi() # connect to Pi
+               pi = self.pigpioPi() # connect to pigpiod
 
                if not pi.connected:
                   exit()
@@ -574,42 +579,16 @@ class operateShutters(MyLog):
            self.LogError("lgpio: no usable gpiochip found")
            return False
 
-       # pigpio path for Pi 1/2/3/4
-       if sys.version_info[0] < 3:
-           import commands
-           status, process = commands.getstatusoutput('pidof pigpiod')
-           if status:  #  it wasn't running, so start it
-               self.LogInfo ("pigpiod was not running")
-               commands.getstatusoutput('pigpiod -l -m')  # try to  start it
-               time.sleep(0.5)
-               # check it again
-               status, process = commands.getstatusoutput('pidof pigpiod')
-       else:
-           import subprocess
-           status, process = subprocess.getstatusoutput('pidof pigpiod')
-           if status:  #  it wasn't running, so start it
-               self.LogInfo ("pigpiod was not running")
-               subprocess.getstatusoutput('pigpiod -l -m')  # try to  start it
-               time.sleep(0.5)
-               # check it again
-               status, process = subprocess.getstatusoutput('pidof pigpiod')
-
-       if not status:  # if it was started successfully (or was already running)...
-           pigpiod_process = process
-           self.LogInfo ("pigpiod is running, process ID is {} ".format(pigpiod_process))
-
-           try:
-               pi = pigpio.pi()  # local GPIO only
-               if not pi.connected:
-                   self.LogError("pigpio connection could not be established. Check logs to get more details.")
-                   return False
-               else:
-                   self.LogInfo("pigpio's pi instantiated.")
-           except Exception as e:
-               start_pigpiod_exception = str(e)
-               self.LogError("problem instantiating pi: {}".format(start_pigpiod_exception))
-       else:
-           self.LogError("start pigpiod was unsuccessful.")
+       host = self.config.PigpioHost.strip() or "localhost"
+       try:
+           pi = pigpio.pi(host, self.config.PigpioPort) if self.config.PigpioHost.strip() else pigpio.pi()
+           if not pi.connected:
+               self.LogError("pigpio connection to " + host + ":" + str(self.config.PigpioPort) + " could not be established.")
+               return False
+           pi.stop()
+           self.LogInfo("pigpio connection to " + host + ":" + str(self.config.PigpioPort) + " established.")
+       except Exception as e:
+           self.LogError("problem connecting to pigpiod at " + host + ":" + str(self.config.PigpioPort) + ": " + str(e))
            return False
        return True
 

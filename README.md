@@ -31,6 +31,15 @@ Now the last step is to connect your adjusted RF transmitter to your Raspberry P
 
 Note that I used GPIO 4 but you can change the value of __TXGPIO__ to whatever you want if you choose a different way to connect your RF emitter. This is a configuration parameter in operateShutters.conf.
 
+On Pi 1/2/3/4, Pi-Somfy talks to a running `pigpiod` daemon over TCP. By default it connects locally, but you can point it at another host or container:
+
+```
+PigpioHost = pigpiod
+PigpioPort = 8888
+```
+
+Pi-Somfy does not start `pigpiod` itself; start it separately on the machine or container that has access to the GPIO pin. Pi 5 uses `lgpio` directly through `/dev/gpiochip*` instead.
+
 OK. now this all should look like this. Note that some of the pictures are a bit confusing with regards to which GPIO a cable connects to. It's easier to see on the above diagram. But if you struggle, maybe the [Wiring Diagram](documentation/Wiring%20Diagram.txt) helps.
 
 

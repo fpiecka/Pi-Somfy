@@ -129,6 +129,8 @@ class MyConfig (MyLog):
         self.HTTPPort = 80
         self.HTTPSPort = 443
         self.RTS_Address = "0x279620"
+        self.PigpioHost = ""
+        self.PigpioPort = 8888
         self.MQTT_ClientID = "somfy-mqtt-bridge"
         self.Shutters = {}
         self.ShuttersByName = {}
@@ -157,7 +159,7 @@ class MyConfig (MyLog):
     # -------------------- MyConfig::LoadConfig-----------------------------------
     def LoadConfig(self):
 
-        parameters = {'LogLocation': str, 'LogToConsole': bool, 'LogToFile': bool, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str}
+        parameters = {'LogLocation': str, 'LogToConsole': bool, 'LogToFile': bool, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, 'PigpioHost': str, 'PigpioPort': int, "Password": str}
         
         for key, type in parameters.items():
             try:

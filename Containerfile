@@ -58,6 +58,7 @@ RUN sed -i \
         -e 's/^LogToFile = true/LogToFile = false/' \
         -e 's/^LogToConsole = false/LogToConsole = true/' \
         -e 's/^HTTPPort = 80/HTTPPort = 8080/' \
+        -e 's/^PigpioHost =/PigpioHost = pigpiod/' \
         /app/defaultConfig.conf \
     && chown -R pi-somfy:pi-somfy /app
 
