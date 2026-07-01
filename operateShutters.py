@@ -99,7 +99,6 @@ try:
     from scheduler import Schedule
     from scheduler import Scheduler
     from webserver import FlaskAppWrapper
-    from alexa import Alexa
     from shutil import copyfile
 except Exception as e1:
     print("\n\nThis program requires the modules located from the same github repository that are not present.\n")
@@ -522,6 +521,7 @@ class operateShutters(MyLog):
         self.webServer = None
 
         if (args.echo == True):
+            from alexa import Alexa
             self.alexa = Alexa(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
 
         if (args.mqtt == True):
