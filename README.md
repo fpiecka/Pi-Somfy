@@ -97,6 +97,15 @@ You should see the help text explaining the [Command Line Interface](documentati
 
 Note that the config file won't exist the first time you run the application. In that case, a new config file will be created based on the name you specified (e.g. /home/pi/Pi-Somfy/operateShutters.conf). Once it has been created, you can modify it to change your need (SSL or not, which port is used, etc.), it will not be erased with an update. If you messed up something, just delete it and relaunch operateShutters.py, a new vanilla copy will be generated.
 
+By default, runtime logs are written to `LogLocation/operateShutters.log`. You can also send runtime logs to the console, or disable the log file entirely:
+
+```
+LogToFile = true
+LogToConsole = false
+```
+
+For container deployments, use `LogToFile = false` and `LogToConsole = true` so logs are available through `docker logs`, `podman logs`, or the system journal.
+
 You have 6 ways to operate. The recommended operation mode is mode 5. But the other 5 modes are explained here for completeness:
 
 1. Command line Interface<br/>You can use either of the following commands to operate a shutter called<br/>

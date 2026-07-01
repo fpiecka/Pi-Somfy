@@ -105,6 +105,12 @@ except Exception as e1:
     print("Error: " + str(e1))
     sys.exit(2)
 
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
 class Shutter(MyLog):
     #Button values
     buttonUp = 0x2
@@ -478,9 +484,11 @@ class operateShutters(MyLog):
         self.console = SetupLogger("shutters_console", log_file = "", stream = True)
 
         if not WINDOWS:
-            if os.geteuid() != 0:
+            if os.geteuid() != 0 and not _env_bool("PI_SOMFY_ALLOW_NON_ROOT"):
                 self.LogConsole("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'.")
                 sys.exit(1)
+            elif os.geteuid() != 0:
+                self.LogConsole("Running without root privileges because PI_SOMFY_ALLOW_NON_ROOT is enabled.")
 
         if not os.path.isfile(self.ConfigFile):
             self.LogConsole("Creating new config file : " + self.ConfigFile)
@@ -503,7 +511,8 @@ class operateShutters(MyLog):
         logLocation = self.config.LogLocation
         if WINDOWS and not os.path.isdir(logLocation):
             logLocation = "./"
-        self.log = SetupLogger("shutters", logLocation + "operateShutters.log")
+        logFile = logLocation + "operateShutters.log" if self.config.LogToFile == True else ""
+        self.log = SetupLogger("shutters", logFile, stream=self.config.LogToConsole)
         self.config.log = self.log
 
         if not WINDOWS and self.IsLoaded():
@@ -534,7 +543,10 @@ class operateShutters(MyLog):
     #return true if program is already loaded
     def IsLoaded(self):
 
-        file_path = '/var/lock/'+os.path.basename(__file__)
+        lock_dir = '/var/lock'
+        if not os.access(lock_dir, os.W_OK):
+            lock_dir = '/tmp'
+        file_path = lock_dir+'/'+os.path.basename(__file__)
         global file_handle
 
         try:
@@ -565,22 +577,22 @@ class operateShutters(MyLog):
        # pigpio path for Pi 1/2/3/4
        if sys.version_info[0] < 3:
            import commands
-           status, process = commands.getstatusoutput('sudo pidof pigpiod')
+           status, process = commands.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               commands.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               commands.getstatusoutput('pigpiod -l -m')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = commands.getstatusoutput('sudo pidof pigpiod')
+               status, process = commands.getstatusoutput('pidof pigpiod')
        else:
            import subprocess
-           status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+           status, process = subprocess.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               subprocess.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               subprocess.getstatusoutput('pigpiod -l -m')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+               status, process = subprocess.getstatusoutput('pidof pigpiod')
 
        if not status:  # if it was started successfully (or was already running)...
            pigpiod_process = process

@@ -120,6 +120,8 @@ class MyConfig (MyLog):
         self.InitComplete = False
 
         self.LogLocation = "/var/log/"
+        self.LogToConsole = False
+        self.LogToFile = True
         self.Latitude = 51.4769
         self.Longitude = 0
         self.SendRepeat = 1
@@ -155,7 +157,7 @@ class MyConfig (MyLog):
     # -------------------- MyConfig::LoadConfig-----------------------------------
     def LoadConfig(self):
 
-        parameters = {'LogLocation': str, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str}
+        parameters = {'LogLocation': str, 'LogToConsole': bool, 'LogToFile': bool, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str}
         
         for key, type in parameters.items():
             try:
