@@ -5,6 +5,7 @@
 import json
 import re
 import socket
+import ssl
 import threading
 import time
 
@@ -212,6 +213,26 @@ class MQTT(threading.Thread, MyLog):
         self.t.unsubscribe(self._command_topic(shutter_id))
         self.t.unsubscribe(self._set_position_topic(shutter_id))
 
+    def _configure_tls(self):
+        if self.config.MQTT_TLS != True:
+            return
+
+        ca_cert = self.config.MQTT_CA_Cert.strip() or None
+        client_cert = self.config.MQTT_Client_Cert.strip() or None
+        client_key = self.config.MQTT_Client_Key.strip() or None
+
+        self.LogInfo("Configuring MQTT TLS")
+        self.t.tls_set(
+            ca_certs=ca_cert,
+            certfile=client_cert,
+            keyfile=client_key,
+            cert_reqs=ssl.CERT_REQUIRED,
+            tls_version=getattr(ssl, 'PROTOCOL_TLS_CLIENT', ssl.PROTOCOL_TLS)
+        )
+        if self.config.MQTT_TLS_Insecure == True:
+            self.LogWarn("MQTT TLS certificate hostname verification is disabled")
+            self.t.tls_insecure_set(True)
+
     def sync_shutters(self):
         """Keep MQTT subscriptions and Home Assistant discovery in sync."""
         current = self._current_shutters()
@@ -371,6 +392,7 @@ class MQTT(threading.Thread, MyLog):
         # Authentication
         if self.config.MQTT_Password.strip():
             self.t.username_pw_set(username=self.config.MQTT_User, password=self.config.MQTT_Password)
+        self._configure_tls()
 
         # Last Will and Testament — broker publishes "offline" on unexpected disconnect
         self.t.will_set(AVAILABILITY_TOPIC, "offline", retain=True)

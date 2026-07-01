@@ -132,6 +132,11 @@ class MyConfig (MyLog):
         self.ShuttersByName = {}
         self.Schedule = {}
         self.Password = ""
+        self.MQTT_TLS = False
+        self.MQTT_TLS_Insecure = False
+        self.MQTT_CA_Cert = ""
+        self.MQTT_Client_Cert = ""
+        self.MQTT_Client_Key = ""
 
         try:
             self.config = RawConfigParser(strict=False)
@@ -160,7 +165,7 @@ class MyConfig (MyLog):
                 self.LogErrorLine("Missing config file or config file entries in Section General for key "+key+": " + str(e1))
                 return False
 
-        parameters = {'MQTT_Server': str, 'MQTT_Port': int, 'MQTT_User': str, 'MQTT_Password': str, 'MQTT_ClientID': str, 'EnableDiscovery': bool}
+        parameters = {'MQTT_Server': str, 'MQTT_Port': int, 'MQTT_User': str, 'MQTT_Password': str, 'MQTT_ClientID': str, 'EnableDiscovery': bool, 'MQTT_TLS': bool, 'MQTT_TLS_Insecure': bool, 'MQTT_CA_Cert': str, 'MQTT_Client_Cert': str, 'MQTT_Client_Key': str}
         
         for key, type in parameters.items():
             try:

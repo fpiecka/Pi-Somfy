@@ -279,6 +279,18 @@ MQTT_Password = xxxxxxx
 ```
 and make sure they match the setup of your MQTT Broker. If you are using Home Assistant, you can conveniently use the "Mosquitto broker" add-on inside Home Assistant. For more information refer to the relevant [Documentation](https://github.com/home-assistant/hassio-addons/tree/master/mosquitto)
 
+If your broker requires TLS or client certificate authentication, set:
+
+```
+MQTT_Port = 8883
+MQTT_TLS = true
+MQTT_CA_Cert = /path/to/ca.crt
+MQTT_Client_Cert = /path/to/client.crt
+MQTT_Client_Key = /path/to/client.key
+```
+
+`MQTT_CA_Cert`, `MQTT_Client_Cert`, and `MQTT_Client_Key` can be left blank if your broker does not require them. `MQTT_TLS_Insecure = true` disables broker certificate hostname verification and should only be used for testing or self-signed local setups.
+
 If you choose not to use the Home Assistant add-in, you can download the [Mosquitto Broker](https://mosquitto.org/) and refer to the [Broker configuration](https://mosquitto.org/man/mosquitto-8.html)
 
 Second, start `operateShutters.py` with the "-m" option. This should look similar to this:
