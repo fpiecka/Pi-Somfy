@@ -164,6 +164,7 @@ class MQTT(threading.Thread, MyLog):
 
         self.bridge_id = _slugify(self.config.MQTT_ClientID)
         self._web_url = self._detect_web_url()
+        self._known_shutters = {}
 
     def _detect_web_url(self):
         """Build the Pi-Somfy web UI URL for HA device configuration link."""
@@ -175,6 +176,64 @@ class MQTT(threading.Thread, MyLog):
         except Exception:
             pass
         return None
+
+    def _current_shutters(self):
+        return dict((shutter_id, shutter) for shutter, shutter_id in self.config.ShuttersByName.items())
+
+    def _discovery_topic(self, shutter_id):
+        return "homeassistant/cover/" + self.bridge_id + "_" + shutter_id + "/config"
+
+    def _command_topic(self, shutter_id):
+        return TOPIC_PREFIX + "/" + shutter_id + "/command"
+
+    def _set_position_topic(self, shutter_id):
+        return TOPIC_PREFIX + "/" + shutter_id + "/set_position"
+
+    def _valid_shutter(self, shutter_id):
+        if shutter_id not in self.config.Shutters:
+            self.LogError("MQTT command rejected for unknown shutter: " + shutter_id)
+            return False
+        return True
+
+    def _publish_discovery(self, shutter_id, shutter_name):
+        if self.config.EnableDiscovery == True:
+            msg = DiscoveryMsg(shutter_name, shutter_id, self.bridge_id, self._web_url)
+            self.sendMQTT(msg.topic, msg.json())
+
+    def _clear_discovery(self, shutter_id):
+        self.t.publish(self._discovery_topic(shutter_id), "", retain=True)
+        self.t.publish("homeassistant/cover/" + shutter_id + "/config", "", retain=True)
+
+    def _subscribe_shutter(self, shutter_id):
+        self.t.subscribe(self._command_topic(shutter_id))
+        self.t.subscribe(self._set_position_topic(shutter_id))
+
+    def _unsubscribe_shutter(self, shutter_id):
+        self.t.unsubscribe(self._command_topic(shutter_id))
+        self.t.unsubscribe(self._set_position_topic(shutter_id))
+
+    def sync_shutters(self):
+        """Keep MQTT subscriptions and Home Assistant discovery in sync."""
+        current = self._current_shutters()
+
+        for shutter_id in sorted(set(self._known_shutters) - set(current)):
+            self.LogInfo("Shutter removed, deregistering MQTT device: " + shutter_id)
+            self._unsubscribe_shutter(shutter_id)
+            self._clear_discovery(shutter_id)
+
+        for shutter_id, shutter_name in sorted(current.items()):
+            if shutter_id not in self._known_shutters:
+                self.LogInfo("New shutter detected, registering MQTT device: " + shutter_name)
+                self._subscribe_shutter(shutter_id)
+                self._publish_discovery(shutter_id, shutter_name)
+                position = self.shutter.getPosition(shutter_id)
+                if position is not None:
+                    self.set_state(shutter_id, position)
+            elif self._known_shutters[shutter_id] != shutter_name:
+                self.LogInfo("Shutter renamed, updating MQTT discovery: " + shutter_name)
+                self._publish_discovery(shutter_id, shutter_name)
+
+        self._known_shutters = current
 
     def receiveMessageFromMQTT(self, client, userdata, message):
         try:
@@ -190,6 +249,8 @@ class MQTT(threading.Thread, MyLog):
 
             shutter_id = parts[1]
             action = parts[2]
+            if not self._valid_shutter(shutter_id):
+                return
 
             if action == "command":
                 if msg == "OPEN":
@@ -204,7 +265,14 @@ class MQTT(threading.Thread, MyLog):
                     self.LogError("Unknown command payload: " + msg)
 
             elif action == "set_position":
-                target = int(msg)
+                try:
+                    target = int(msg)
+                except ValueError:
+                    self.LogError("Invalid set_position payload for " + shutter_id + ": " + msg)
+                    return
+                if target < 0 or target > 100:
+                    self.LogError("Invalid set_position range for " + shutter_id + ": " + str(target))
+                    return
                 current = self.shutter.getPosition(shutter_id)
                 if target >= 100:
                     self._publish_state(shutter_id, "opening")
@@ -235,7 +303,7 @@ class MQTT(threading.Thread, MyLog):
 
     def _remove_old_discovery(self):
         """Clear old-format discovery entries to prevent duplicate entities."""
-        for shutter, shutter_id in sorted(self.config.ShuttersByName.items(), key=lambda kv: kv[1]):
+        for shutter_id, shutter in sorted(self._current_shutters().items()):
             old_topic = "homeassistant/cover/" + shutter_id + "/config"
             self.t.publish(old_topic, "", retain=True)
 
@@ -246,9 +314,8 @@ class MQTT(threading.Thread, MyLog):
         bridge_msg = BridgeDiscoveryMsg(self.bridge_id, self._web_url)
         self.sendMQTT(bridge_msg.topic, bridge_msg.json())
 
-        for shutter, shutter_id in sorted(self.config.ShuttersByName.items(), key=lambda kv: kv[1]):
-            msg = DiscoveryMsg(shutter, shutter_id, self.bridge_id, self._web_url)
-            self.sendMQTT(msg.topic, msg.json())
+        for shutter_id, shutter in sorted(self._current_shutters().items()):
+            self._publish_discovery(shutter_id, shutter)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -258,22 +325,15 @@ class MQTT(threading.Thread, MyLog):
             # Mark bridge as online
             self.sendMQTT(AVAILABILITY_TOPIC, "online")
 
-            # Subscribe to command and position topics for each shutter
-            for shutter, shutter_id in sorted(self.config.ShuttersByName.items(), key=lambda kv: kv[1]):
-                self.LogInfo("Subscribing: " + shutter)
-                self.t.subscribe(TOPIC_PREFIX + "/" + shutter_id + "/command")
-                self.t.subscribe(TOPIC_PREFIX + "/" + shutter_id + "/set_position")
-
             # Publish discovery if enabled
             if self.config.EnableDiscovery == True:
                 self.LogInfo("Publishing Home Assistant MQTT discovery")
-                self.sendStartupInfo()
+                self._remove_old_discovery()
+                bridge_msg = BridgeDiscoveryMsg(self.bridge_id, self._web_url)
+                self.sendMQTT(bridge_msg.topic, bridge_msg.json())
 
-            # Publish current positions for all shutters
-            for shutter, shutter_id in sorted(self.config.ShuttersByName.items(), key=lambda kv: kv[1]):
-                position = self.shutter.getPosition(shutter_id)
-                if position is not None:
-                    self.set_state(shutter_id, position)
+            self._known_shutters = {}
+            self.sync_shutters()
 
         else:
             self.LogError("MQTT connection failed (rc=" + str(rc) + ")")
@@ -346,6 +406,8 @@ class MQTT(threading.Thread, MyLog):
                 if not self.connected_flag:
                     self.LogInfo("Reconnecting to MQTT broker")
                     self.t.reconnect()
+                else:
+                    self.sync_shutters()
                 time.sleep(5)
             except Exception as e:
                 self.LogInfo("MQTT reconnect failed: " + str(e))
@@ -360,4 +422,3 @@ class MQTT(threading.Thread, MyLog):
         except Exception:
             pass
         self.LogError("MQTT thread stopped")
-
