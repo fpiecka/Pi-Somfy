@@ -38,6 +38,7 @@ class PiSomfyCover(CoordinatorEntity[PiSomfyCoordinator], CoverEntity):
 
     _attr_device_class = CoverDeviceClass.SHUTTER
     _attr_has_entity_name = True
+    _attr_assumed_state = True
 
     def __init__(
         self,

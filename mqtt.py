@@ -84,6 +84,10 @@ class DiscoveryMsg:
             "position_open": 100,
             "position_closed": 0,
 
+            # Keep HA open/close controls available even if the reported
+            # position is stale or already at an endpoint.
+            "optimistic": True,
+
             # Availability via Last Will and Testament
             "availability": {
                 "topic": AVAILABILITY_TOPIC,
